@@ -2,10 +2,17 @@
 SELECT * FROM users 
 WHERE users.id = $1;
 
+-- name: GetUserByName :one
+SELECT *
+  FROM users 
+  WHERE users.name = $1;
 -- name: CreateUser :exec 
 INSERT INTO users (
   name, email, password 
 ) VALUES ( $1, $2, $3 );
+
+
+
 
 -- name: CreateMovie :exec
 INSERT INTO movies (
