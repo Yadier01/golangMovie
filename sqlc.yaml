@@ -1,0 +1,10 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    queries: "query.sql"      # Path to your SQL queries
+    schema: "db/migrations/"      # Path to your schema file
+    gen:
+      go:
+        package: "db"   # Go package name for generated code
+        out: "db/"       # Directory to output generated code
+        sql_package: "database/sql"  # SQLite-compatible package
