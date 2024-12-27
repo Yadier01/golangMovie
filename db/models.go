@@ -10,7 +10,7 @@ import (
 )
 
 type Movie struct {
-	ID          int32
+	ID          int64
 	Title       string
 	Description string
 	Genre       string
@@ -20,13 +20,13 @@ type Movie struct {
 }
 
 type Reservation struct {
-	ID      int32
-	Userid  int32
-	Movieid int32
+	ID      int64
+	Userid  int64
+	Movieid int64
 }
 
 type User struct {
-	ID       int32
+	ID       int64
 	Name     string
 	Email    string
 	Password string

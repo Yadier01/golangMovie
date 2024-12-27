@@ -12,7 +12,7 @@ import (
 
 const createMovie = `-- name: CreateMovie :exec
 INSERT INTO movies (
- title, description, genre, showtime, seats, poster 
+ title, description, genre, showtime, seats, poster
 ) VALUES ( $1, $2, $3,$4,$5,$6)
 `
 
@@ -44,8 +44,8 @@ INSERT INTO reservations (
 `
 
 type CreateReservationParams struct {
-	Userid  int32
-	Movieid int32
+	Userid  int64
+	Movieid int64
 }
 
 func (q *Queries) CreateReservation(ctx context.Context, arg CreateReservationParams) error {
@@ -55,7 +55,7 @@ func (q *Queries) CreateReservation(ctx context.Context, arg CreateReservationPa
 
 const createUser = `-- name: CreateUser :exec
 INSERT INTO users (
-  name, email, password 
+  name, email, password
 ) VALUES ( $1, $2, $3 )
 `
 
@@ -71,9 +71,8 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 }
 
 const getMovie = `-- name: GetMovie :one
-SELECT id, title, description, genre, showtime, seats, poster 
-  FROM movies 
-  WHERE movies.title = $1
+SELECT id, title, description, genre, showtime, seats, poster FROM movies
+WHERE movies.title = $1
 `
 
 func (q *Queries) GetMovie(ctx context.Context, title string) (Movie, error) {
@@ -91,12 +90,155 @@ func (q *Queries) GetMovie(ctx context.Context, title string) (Movie, error) {
 	return i, err
 }
 
+const getMovieById = `-- name: GetMovieById :one
+SELECT id, title, description, genre, showtime, seats, poster
+  FROM movies
+  WHERE id = $1
+`
+
+func (q *Queries) GetMovieById(ctx context.Context, id int64) (Movie, error) {
+	row := q.db.QueryRowContext(ctx, getMovieById, id)
+	var i Movie
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Description,
+		&i.Genre,
+		&i.Showtime,
+		&i.Seats,
+		&i.Poster,
+	)
+	return i, err
+}
+
+const getMovies = `-- name: GetMovies :many
+SELECT id, title, description, genre, showtime, seats, poster FROM movies
+LIMIT 10
+`
+
+func (q *Queries) GetMovies(ctx context.Context) ([]Movie, error) {
+	rows, err := q.db.QueryContext(ctx, getMovies)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Movie
+	for rows.Next() {
+		var i Movie
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Description,
+			&i.Genre,
+			&i.Showtime,
+			&i.Seats,
+			&i.Poster,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getReservation = `-- name: GetReservation :one
+SELECT id, userid, movieid
+  FROM reservations as r
+  WHERE r.id = $1
+`
+
+func (q *Queries) GetReservation(ctx context.Context, id int64) (Reservation, error) {
+	row := q.db.QueryRowContext(ctx, getReservation, id)
+	var i Reservation
+	err := row.Scan(&i.ID, &i.Userid, &i.Movieid)
+	return i, err
+}
+
+const getReservations = `-- name: GetReservations :many
+SELECT r.id, userid, movieid, movies.id, title, description, genre, showtime, seats, poster FROM reservations as r
+  INNER JOIN movies
+  ON r.movieid = movies.id
+  WHERE r.userid = $1
+`
+
+type GetReservationsRow struct {
+	ID          int64
+	Userid      int64
+	Movieid     int64
+	ID_2        int64
+	Title       string
+	Description string
+	Genre       string
+	Showtime    time.Time
+	Seats       int32
+	Poster      string
+}
+
+func (q *Queries) GetReservations(ctx context.Context, userid int64) ([]GetReservationsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getReservations, userid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetReservationsRow
+	for rows.Next() {
+		var i GetReservationsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Userid,
+			&i.Movieid,
+			&i.ID_2,
+			&i.Title,
+			&i.Description,
+			&i.Genre,
+			&i.Showtime,
+			&i.Seats,
+			&i.Poster,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getUserByEmail = `-- name: GetUserByEmail :one
+SELECT id, name, email, password, isadmin
+  FROM users 
+  WHERE email = $1
+`
+
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUserByEmail, email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Email,
+		&i.Password,
+		&i.Isadmin,
+	)
+	return i, err
+}
+
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, name, email, password, isadmin FROM users 
+SELECT id, name, email, password, isadmin FROM users
 WHERE users.id = $1
 `
 
-func (q *Queries) GetUserByID(ctx context.Context, id int32) (User, error) {
+func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
 	row := q.db.QueryRowContext(ctx, getUserByID, id)
 	var i User
 	err := row.Scan(
@@ -110,9 +252,8 @@ func (q *Queries) GetUserByID(ctx context.Context, id int32) (User, error) {
 }
 
 const getUserByName = `-- name: GetUserByName :one
-SELECT id, name, email, password, isadmin
-  FROM users 
-  WHERE users.name = $1
+SELECT id, name, email, password, isadmin FROM users
+WHERE users.name = $1
 `
 
 func (q *Queries) GetUserByName(ctx context.Context, name string) (User, error) {
@@ -126,4 +267,19 @@ func (q *Queries) GetUserByName(ctx context.Context, name string) (User, error) 
 		&i.Isadmin,
 	)
 	return i, err
+}
+
+const removeReservation = `-- name: RemoveReservation :exec
+DELETE FROM reservations as r
+  WHERE r.id= $1 AND r.userid = $2
+`
+
+type RemoveReservationParams struct {
+	ID     int64
+	Userid int64
+}
+
+func (q *Queries) RemoveReservation(ctx context.Context, arg RemoveReservationParams) error {
+	_, err := q.db.ExecContext(ctx, removeReservation, arg.ID, arg.Userid)
+	return err
 }

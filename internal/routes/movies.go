@@ -1,4 +1,4 @@
-package server
+package internal
 
 import (
 	"fmt"
@@ -6,40 +6,24 @@ import (
 	"time"
 
 	"github.com/Yadier01/golangMovie/db"
-	"github.com/Yadier01/golangMovie/pkg/util"
 	"github.com/gin-gonic/gin"
 )
 
-type reservation struct {
-	UserId  int32 `json:"userId"`
-	MovieId int32 `json:"movieId"`
-}
-
-func (server *Server) addReservation(c *gin.Context) {
-	var res reservation
-	if err := c.ShouldBindJSON(&res); err != nil {
-		util.NewError(c, http.StatusNotFound, "movie not found")
-		return
-	}
-	resParams := db.CreateReservationParams{
-		Userid:  res.MovieId,
-		Movieid: res.MovieId,
-	}
-	err := server.Query.CreateReservation(c, resParams)
-	if err != nil {
-		util.NewError(c, http.StatusInternalServerError, "could not create reservation")
-		return
-	}
-
-	c.JSON(http.StatusCreated, gin.H{"message": "reservation Created"})
-}
-
 func (server *Server) getMovies(c *gin.Context) {
+	movies, err := server.Query.GetMovies(c)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "could not fetch movies"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"movies": movies})
+}
+func (server *Server) getMovie(c *gin.Context) {
 	param := c.Param("name")
 
 	movie, err := server.Query.GetMovie(c, param)
 	if err != nil {
-		util.NewError(c, http.StatusNotFound, "movie not found")
+		c.JSON(http.StatusNotFound, gin.H{"message": "this movie does not exits"})
 		return
 	}
 
@@ -61,7 +45,7 @@ func (server *Server) CreateMovie(c *gin.Context) {
 	if err := c.ShouldBindJSON(&movie); err != nil {
 		fmt.Println("----------")
 		fmt.Println(movie, err)
-		util.NewError(c, http.StatusBadRequest, "bad json :(")
+		c.JSON(http.StatusBadRequest, gin.H{"message": "bad json"})
 		return
 	}
 
@@ -73,10 +57,11 @@ func (server *Server) CreateMovie(c *gin.Context) {
 		Seats:       movie.Seats,
 		Poster:      movie.Poster,
 	}
-	err := server.Query.CreateMovie(c, movieParams)
-	if err != nil {
 
-		util.NewError(c, http.StatusInternalServerError, "could not create movie")
+	err := server.Query.CreateMovie(c, movieParams)
+	fmt.Println(err)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "could not create movie"})
 		return
 	}
 

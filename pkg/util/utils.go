@@ -1,20 +1,16 @@
 package util
 
 import (
+	"errors"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func NewError(c *gin.Context, status int, errorMessage string) {
-	c.JSON(status, gin.H{"error": errorMessage})
-}
-func SignUserJWT(id int32, name string) (jwtToken string, err error) {
-	//change this obv
-	var mySigningKey = []byte("AllYourBase")
+// change this obv, should be in .env file also
+var mySigningKey = []byte("AllYourBase")
 
-	// Create the Claims
+func SignUserJWT(id int64, name string) (string, error) {
 	claims := jwt.MapClaims{
 		"exp":  time.Now().Add(time.Hour * 24).Unix(), // Token expires in 24 hours
 		"id":   id,
@@ -29,10 +25,29 @@ func SignUserJWT(id int32, name string) (jwtToken string, err error) {
 	return ss, nil
 }
 
-// fix this
-func CheckUserJWT(tokenString string) {
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		return []byte("AllYourBase"), nil
-	})
+type claims struct {
+	Id   int64
+	Name string
+	Exp  int64
+}
 
+func CheckUserJWT(tokenString string) (*claims, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		_, ok := token.Method.(*jwt.SigningMethodHMAC)
+		if !ok {
+			return nil, errors.New("Unexpected signing method")
+		}
+		return mySigningKey, nil
+	})
+	if err != nil {
+		return nil, errors.New("could not parse token")
+	}
+	if token.Valid {
+		return &claims{
+			Id:   int64(token.Claims.(jwt.MapClaims)["id"].(float64)),
+			Name: token.Claims.(jwt.MapClaims)["name"].(string),
+			Exp:  int64(token.Claims.(jwt.MapClaims)["exp"].(float64)),
+		}, nil
+	}
+	return nil, err
 }
